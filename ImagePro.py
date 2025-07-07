@@ -89,7 +89,7 @@ def split_dataset(folder, train_pct, val_pct, test_pct, log_callback):
 class ModernApp:
     def __init__(self, master):
         self.master = master
-        master.title("ImagePro")
+        master.title("ImagePro - Duplicate Checker & Dataset Splitter")
         master.geometry("900x700")
         master.minsize(800, 600)
         master.configure(bg="#f8f9fa")
