@@ -15,7 +15,6 @@ SETTINGS_FILE = "settings.json"
 def find_duplicates(image_dir, progress_callback, stop_flag):
     hashes = defaultdict(list)
     duplicates = []
-    # cache = load_cache()  # Більше не використовуємо кеш
     files = [f for f in os.listdir(image_dir) if f.lower().endswith(('jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff'))]
 
     for idx, filename in enumerate(files, 1):
@@ -30,19 +29,16 @@ def find_duplicates(image_dir, progress_callback, stop_flag):
         hashes[h].append(filename)
         progress_callback(f"Перевірено {idx}/{len(files)} файлів", idx, len(files))
 
-    # save_cache(cache)  # Більше не зберігаємо кеш
-
     for file_list in hashes.values():
         if len(file_list) > 1:
             duplicates.append(file_list)
 
-    # Створити теку Duplicate і перенести дублікати
     if duplicates:
         dup_dir = os.path.join(image_dir, "Duplicate")
         os.makedirs(dup_dir, exist_ok=True)
         moved = set()
         for group in duplicates:
-            for file in group[1:]:  # залишаємо перший файл оригіналом
+            for file in group[1:]:
                 if file not in moved:
                     shutil.move(os.path.join(image_dir, file), os.path.join(dup_dir, file))
                     moved.add(file)
@@ -65,7 +61,6 @@ def split_dataset(folder, train_pct, val_pct, test_pct, log_callback):
             shutil.copy2(os.path.join(folder, f), os.path.join(img_path, f))
         log_callback(f"✓ {subfolder.upper()}: {len(subfiles)} файлів")
 
-    # Підрахунок статистики
     stats = {}
     for subfolder in ['train', 'val', 'test']:
         img_path = os.path.join(folder, 'images', subfolder)
@@ -89,7 +84,6 @@ class ModernApp:
         master.minsize(800, 600)
         master.configure(bg="#f8f9fa")
         
-        # Встановлюємо іконку (якщо є)
         try:
             master.iconbitmap("app_icon.ico")
         except:
@@ -99,15 +93,12 @@ class ModernApp:
         self.stop_flag = {'stop': False}
         self.load_settings()
         
-        # Налаштування стилів
         self.setup_styles()
         
-        # Створення інтерфейсу
         self.create_header()
         self.create_main_content()
         self.create_footer()
         
-        # Центрування вікна
         self.center_window()
         
     def setup_styles(self):
@@ -115,7 +106,6 @@ class ModernApp:
         style = ttk.Style()
         style.theme_use('clam')
         
-        # Кольори
         self.colors = {
             'primary': '#2563eb',
             'primary_hover': '#1d4ed8',
@@ -129,7 +119,6 @@ class ModernApp:
             'border': '#e2e8f0'
         }
         
-        # Шрифти
         self.fonts = {
             'title': tkFont.Font(family='Segoe UI', size=20, weight='bold'),
             'subtitle': tkFont.Font(family='Segoe UI', size=12, weight='normal'),
@@ -138,7 +127,6 @@ class ModernApp:
             'entry': tkFont.Font(family='Segoe UI', size=10)
         }
         
-        # Стилі для кнопок
         style.configure("Primary.TButton", 
                        background=self.colors['primary'],
                        foreground=self.colors['white'],
@@ -167,7 +155,6 @@ class ModernApp:
                        focuscolor='none',
                        padding=(15, 10))
         
-        # Стилі для лейблів
         style.configure("Title.TLabel",
                        background=self.colors['light'],
                        foreground=self.colors['dark'],
@@ -183,7 +170,6 @@ class ModernApp:
                        foreground=self.colors['dark'],
                        font=self.fonts['label'])
         
-        # Стилі для Entry
         style.configure("Modern.TEntry",
                        fieldbackground=self.colors['white'],
                        foreground=self.colors['dark'],
@@ -191,7 +177,6 @@ class ModernApp:
                        relief='solid',
                        font=self.fonts['entry'])
         
-        # Стилі для Progress Bar
         style.configure("Modern.Horizontal.TProgressbar",
                        background=self.colors['primary'],
                        troughcolor=self.colors['border'],
@@ -205,11 +190,9 @@ class ModernApp:
         header_frame.pack(fill='x', padx=20, pady=(20, 0))
         header_frame.pack_propagate(False)
         
-        # Заголовок
         title_label = ttk.Label(header_frame, text="ImagePro", style="Title.TLabel")
         title_label.pack(side='left', padx=10, pady=20)
         
-        # Підзаголовок
         subtitle_label = ttk.Label(header_frame, 
                                  text="Професійний інструмент для пошуку дублікатів та розподілу датасетів",
                                  style="Subtitle.TLabel")
@@ -217,21 +200,16 @@ class ModernApp:
     
     def create_main_content(self):
         """Створення основного контенту"""
-        # Основний контейнер
         main_frame = tk.Frame(self.master, bg=self.colors['light'])
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
-        # Верхня частина - панелі дублікатів та датасету
         top_frame = tk.Frame(main_frame, bg=self.colors['light'])
         top_frame.pack(fill='both', expand=True)
         
-        # Ліва панель - дублікати
         self.create_duplicates_panel(top_frame)
         
-        # Центральна панель - логи
         self.create_logs_panel(top_frame)
         
-        # Права панель - розподіл датасету
         self.create_dataset_panel(top_frame)
     
     def create_duplicates_panel(self, parent):
@@ -239,7 +217,6 @@ class ModernApp:
         duplicates_frame = tk.Frame(parent, bg=self.colors['white'], relief='solid', bd=1)
         duplicates_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
         
-        # Заголовок секції
         title_frame = tk.Frame(duplicates_frame, bg=self.colors['primary'], height=50)
         title_frame.pack(fill='x')
         title_frame.pack_propagate(False)
@@ -248,11 +225,9 @@ class ModernApp:
                  foreground=self.colors['white'], background=self.colors['primary'],
                  font=self.fonts['button']).pack(pady=15)
         
-        # Контент
         content_frame = tk.Frame(duplicates_frame, bg=self.colors['white'])
         content_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
-        # Вибір папки
         folder_frame = tk.Frame(content_frame, bg=self.colors['white'])
         folder_frame.pack(fill='x', pady=(0, 20))
         
@@ -267,7 +242,6 @@ class ModernApp:
         ttk.Button(folder_frame, text="📂 Обрати папку", 
                   command=self.select_folder, style="Primary.TButton").pack(pady=10)
         
-        # Кнопки управління
         buttons_frame = tk.Frame(content_frame, bg=self.colors['white'])
         buttons_frame.pack(fill='x', pady=20)
         
@@ -277,7 +251,6 @@ class ModernApp:
         ttk.Button(buttons_frame, text="⏹ Зупинити", 
                   command=self.stop_duplicates, style="Danger.TButton").pack(fill='x')
         
-        # Статистика
         self.stats_frame = tk.Frame(content_frame, bg=self.colors['light'], relief='solid', bd=1)
         self.stats_frame.pack(fill='x', pady=(20, 0))
         
@@ -293,7 +266,6 @@ class ModernApp:
         dataset_frame = tk.Frame(parent, bg=self.colors['white'], relief='solid', bd=1)
         dataset_frame.pack(side='right', fill='both', expand=True, padx=(10, 0))
         
-        # Заголовок секції
         title_frame = tk.Frame(dataset_frame, bg=self.colors['success'], height=50)
         title_frame.pack(fill='x')
         title_frame.pack_propagate(False)
@@ -302,15 +274,12 @@ class ModernApp:
                  foreground=self.colors['white'], background=self.colors['success'],
                  font=self.fonts['button']).pack(pady=15)
         
-        # Контент
         content_frame = tk.Frame(dataset_frame, bg=self.colors['white'])
         content_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
-        # Налаштування розподілу
         ttk.Label(content_frame, text="Налаштування розподілу (%)", 
                  style="Modern.TLabel", font=self.fonts['button']).pack(anchor='w', pady=(0, 20))
         
-        # Train
         train_frame = tk.Frame(content_frame, bg=self.colors['white'])
         train_frame.pack(fill='x', pady=10)
         
@@ -319,7 +288,6 @@ class ModernApp:
         self.train_entry.pack(side='right')
         self.train_entry.insert(0, self.settings.get("train", "70"))
         
-        # Validation
         val_frame = tk.Frame(content_frame, bg=self.colors['white'])
         val_frame.pack(fill='x', pady=10)
         
@@ -328,7 +296,6 @@ class ModernApp:
         self.val_entry.pack(side='right')
         self.val_entry.insert(0, self.settings.get("val", "15"))
         
-        # Test
         test_frame = tk.Frame(content_frame, bg=self.colors['white'])
         test_frame.pack(fill='x', pady=10)
         
@@ -337,10 +304,8 @@ class ModernApp:
         self.test_entry.pack(side='right')
         self.test_entry.insert(0, self.settings.get("test", "15"))
         
-        # Візуалізація розподілу
         self.create_distribution_chart(content_frame)
         
-        # Кнопка розподілу
         ttk.Button(content_frame, text="⚡ Розподілити датасет", 
                   command=self.run_split, style="Success.TButton").pack(fill='x', pady=20)
     
@@ -349,11 +314,9 @@ class ModernApp:
         chart_frame = tk.Frame(parent, bg=self.colors['light'], relief='solid', bd=1)
         chart_frame.pack(fill='x', pady=20)
         
-        # Заголовок
         ttk.Label(chart_frame, text="📈 Поточний розподіл", 
                  style="Modern.TLabel", font=self.fonts['button']).pack(pady=(10, 5))
         
-        # Контейнер для чарту
         self.chart_container = tk.Frame(chart_frame, bg=self.colors['light'])
         self.chart_container.pack(fill='x', padx=20, pady=(0, 10))
         
@@ -361,7 +324,6 @@ class ModernApp:
     
     def update_chart(self):
         """Оновлення візуалізації розподілу"""
-        # Очищаємо контейнер
         for widget in self.chart_container.winfo_children():
             widget.destroy()
         
@@ -374,7 +336,6 @@ class ModernApp:
             if total == 0:
                 return
             
-            # Створюємо прогрес-бари як візуалізацію
             for name, value, color in [("Train", train, self.colors['primary']), 
                                      ("Val", val, self.colors['warning']), 
                                      ("Test", test, self.colors['success'])]:
@@ -386,12 +347,11 @@ class ModernApp:
                                font=self.fonts['label'])
                 label.pack(side='left')
                 
-                # Простий прогрес-бар
                 bar_frame = tk.Frame(frame, bg=self.colors['border'], height=20)
                 bar_frame.pack(side='right', fill='x', expand=True, padx=(10, 0))
                 
                 if total > 0:
-                    width = int((value / 100) * 200)  # Максимальна ширина 200px
+                    width = int((value / 100) * 200)
                     bar = tk.Frame(bar_frame, bg=color, height=20, width=width)
                     bar.pack(side='left')
                     
@@ -403,7 +363,6 @@ class ModernApp:
         logs_frame = tk.Frame(parent, bg=self.colors['white'], relief='solid', bd=1)
         logs_frame.pack(side='left', fill='both', expand=True, padx=10)
         
-        # Заголовок
         title_frame = tk.Frame(logs_frame, bg=self.colors['secondary'], height=50)
         title_frame.pack(fill='x')
         title_frame.pack_propagate(False)
@@ -412,11 +371,9 @@ class ModernApp:
                  foreground=self.colors['white'], background=self.colors['secondary'],
                  font=self.fonts['button']).pack(pady=15)
         
-        # Контент логів
         logs_content = tk.Frame(logs_frame, bg=self.colors['white'])
         logs_content.pack(fill='both', expand=True, padx=20, pady=20)
         
-        # Текстове поле для логів
         self.log = scrolledtext.ScrolledText(logs_content, 
                                            width=40, height=15,
                                            bg=self.colors['dark'],
@@ -425,7 +382,6 @@ class ModernApp:
                                            wrap=tk.WORD)
         self.log.pack(fill='both', expand=True)
         
-        # Прогрес-бар
         self.progress = ttk.Progressbar(logs_content, style="Modern.Horizontal.TProgressbar")
         self.progress.pack(fill='x', pady=(10, 0))
     
@@ -477,7 +433,6 @@ class ModernApp:
             self.log.insert(tk.END, f"✓ Обрано папку: {self.folder}\n")
             self.log.see(tk.END)
             
-            # Підрахунок файлів
             try:
                 files = [f for f in os.listdir(self.folder) if f.lower().endswith(('jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff'))]
                 self.stats_text.config(text=f"Знайдено {len(files)} зображень")
@@ -555,7 +510,6 @@ class ModernApp:
         frame = tk.Frame(canvas, bg="#f8fafc")
         canvas.create_window((0, 0), window=frame, anchor='nw')
 
-        # Масштабування через Entry
         size_frame = tk.Frame(preview_win, bg="#f8fafc")
         size_frame.place(relx=0.5, rely=0, anchor='n')
         tk.Label(size_frame, text="Розмір мініатюр (80-500):", bg="#f8fafc").pack(side='left')
@@ -563,11 +517,9 @@ class ModernApp:
         size_entry = tk.Entry(size_frame, textvariable=thumb_size_var, width=5)
         size_entry.pack(side='left', padx=5)
 
-        # Зберігаємо посилання на мініатюри у вікні, щоб не збирав GC
         preview_win.thumbs = []
 
         def render_thumbnails():
-            # Очистити frame
             for widget in frame.winfo_children():
                 widget.destroy()
             preview_win.thumbs.clear()
@@ -578,8 +530,8 @@ class ModernApp:
                 if thumb_size > 500:
                     thumb_size = 500
             except ValueError:
-                thumb_size = 150  # дефолт
-            thumb_size_var.set(str(thumb_size))  # оновити поле, якщо було некоректно
+                thumb_size = 150
+            thumb_size_var.set(str(thumb_size))
             for idx, group in enumerate(dups, 1):
                 group_label = tk.Label(frame, text=f"Група {idx} ({len(group)}):", font=("Segoe UI", 10, "bold"), bg="#f8fafc")
                 group_label.pack(anchor='w', pady=(10, 0))
@@ -600,19 +552,17 @@ class ModernApp:
             frame.update_idletasks()
             canvas.config(scrollregion=canvas.bbox("all"))
 
-        # Додаємо скролінг колесом миші
         def _on_mousewheel(event):
             if event.delta:
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-            elif event.num == 4:  # Linux scroll up
+            elif event.num == 4:
                 canvas.yview_scroll(-3, "units")
-            elif event.num == 5:  # Linux scroll down
+            elif event.num == 5:
                 canvas.yview_scroll(3, "units")
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
         canvas.bind_all("<Button-4>", _on_mousewheel)
         canvas.bind_all("<Button-5>", _on_mousewheel)
 
-        # Оновлюємо мініатюри при зміні значення в полі
         def on_entry_change(*args):
             render_thumbnails()
         thumb_size_var.trace_add("write", on_entry_change)
@@ -665,7 +615,6 @@ if __name__ == '__main__':
     root = tk.Tk()
     app = ModernApp(root)
     
-    # Bind для оновлення чарту при зміні значень
     def on_entry_change(*args):
         app.update_chart()
     
