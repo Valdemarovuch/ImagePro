@@ -3,49 +3,34 @@ import json
 import threading
 import random
 import shutil
-from PIL import Image
+from PIL import Image, ImageTk
 import imagehash
 from collections import defaultdict
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 import tkinter.font as tkFont
 
-CACHE_FILE = "hash_cache.json"
 SETTINGS_FILE = "settings.json"
-
-def load_cache():
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, 'r') as f:
-            return json.load(f)
-    return {}
-
-def save_cache(cache):
-    with open(CACHE_FILE, 'w') as f:
-        json.dump(cache, f)
 
 def find_duplicates(image_dir, progress_callback, stop_flag):
     hashes = defaultdict(list)
     duplicates = []
-    cache = load_cache()
+    # cache = load_cache()  # Більше не використовуємо кеш
     files = [f for f in os.listdir(image_dir) if f.lower().endswith(('jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff'))]
 
     for idx, filename in enumerate(files, 1):
         if stop_flag['stop']:
             break
         path = os.path.join(image_dir, filename)
-        if filename in cache:
-            h = cache[filename]
-        else:
-            try:
-                with Image.open(path) as img:
-                    h = str(imagehash.phash(img))
-                    cache[filename] = h
-            except Exception:
-                continue
+        try:
+            with Image.open(path) as img:
+                h = str(imagehash.phash(img))
+        except Exception:
+            continue
         hashes[h].append(filename)
         progress_callback(f"Перевірено {idx}/{len(files)} файлів", idx, len(files))
 
-    save_cache(cache)
+    # save_cache(cache)  # Більше не зберігаємо кеш
 
     for file_list in hashes.values():
         if len(file_list) > 1:
@@ -80,11 +65,21 @@ def split_dataset(folder, train_pct, val_pct, test_pct, log_callback):
             shutil.copy2(os.path.join(folder, f), os.path.join(img_path, f))
         log_callback(f"✓ {subfolder.upper()}: {len(subfiles)} файлів")
 
+    # Підрахунок статистики
+    stats = {}
+    for subfolder in ['train', 'val', 'test']:
+        img_path = os.path.join(folder, 'images', subfolder)
+        count = len([f for f in os.listdir(img_path) if f.lower().endswith(('jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff'))])
+        stats[subfolder] = count
+
     with open("split_log.txt", "w", encoding='utf-8') as f:
         f.write(f"Dataset Split Results:\n")
         f.write(f"Train: {len(train_files)} files\n")
         f.write(f"Validation: {len(val_files)} files\n")
         f.write(f"Test: {len(test_files)} files\n")
+        f.write("\nСтатистика по підпапках:\n")
+        for k, v in stats.items():
+            f.write(f"{k}: {v} зображень\n")
 
 class ModernApp:
     def __init__(self, master):
@@ -114,7 +109,7 @@ class ModernApp:
         
         # Центрування вікна
         self.center_window()
-    
+        
     def setup_styles(self):
         """Налаштування сучасних стилів"""
         style = ttk.Style()
@@ -493,9 +488,11 @@ class ModernApp:
         if not self.folder:
             messagebox.showerror("Помилка", "Будь ласка, оберіть папку для сканування")
             return
+
         self.stop_flag['stop'] = False
         self.log.insert(tk.END, "🚀 Початок пошуку дублікатів...\n")
         self.log.see(tk.END)
+
         thread = threading.Thread(target=self.run_duplicates)
         thread.daemon = True
         thread.start()
@@ -536,6 +533,7 @@ class ModernApp:
             result += f"📁 Переміщено {moved_count} файлів до папки 'Duplicate'\n"
             self.log.insert(tk.END, result)
             self.stats_text.config(text=f"Знайдено {len(dups)} груп дублікатів")
+            self.show_duplicates_preview(dups)
         else:
             result = "✅ Дублікати не знайдено"
             self.log.insert(tk.END, result + "\n")
@@ -543,6 +541,85 @@ class ModernApp:
         
         self.log.see(tk.END)
         messagebox.showinfo("Результат", result)
+
+    def show_duplicates_preview(self, dups):
+        """Відкрити вікно з прев’ю знайдених дублікатів з можливістю масштабування"""
+        preview_win = tk.Toplevel(self.master)
+        preview_win.title("Прев’ю дублікатів")
+        preview_win.geometry("900x700")
+        canvas = tk.Canvas(preview_win, bg="#f8fafc")
+        canvas.pack(fill='both', expand=True, side='left')
+        scrollbar = ttk.Scrollbar(preview_win, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side='right', fill='y')
+        canvas.configure(yscrollcommand=scrollbar.set)
+        frame = tk.Frame(canvas, bg="#f8fafc")
+        canvas.create_window((0, 0), window=frame, anchor='nw')
+
+        # Масштабування через Entry
+        size_frame = tk.Frame(preview_win, bg="#f8fafc")
+        size_frame.place(relx=0.5, rely=0, anchor='n')
+        tk.Label(size_frame, text="Розмір мініатюр (80-500):", bg="#f8fafc").pack(side='left')
+        thumb_size_var = tk.StringVar(value="150")
+        size_entry = tk.Entry(size_frame, textvariable=thumb_size_var, width=5)
+        size_entry.pack(side='left', padx=5)
+
+        # Зберігаємо посилання на мініатюри у вікні, щоб не збирав GC
+        preview_win.thumbs = []
+
+        def render_thumbnails():
+            # Очистити frame
+            for widget in frame.winfo_children():
+                widget.destroy()
+            preview_win.thumbs.clear()
+            try:
+                thumb_size = int(thumb_size_var.get())
+                if thumb_size < 80:
+                    thumb_size = 80
+                if thumb_size > 500:
+                    thumb_size = 500
+            except ValueError:
+                thumb_size = 150  # дефолт
+            thumb_size_var.set(str(thumb_size))  # оновити поле, якщо було некоректно
+            for idx, group in enumerate(dups, 1):
+                group_label = tk.Label(frame, text=f"Група {idx} ({len(group)}):", font=("Segoe UI", 10, "bold"), bg="#f8fafc")
+                group_label.pack(anchor='w', pady=(10, 0))
+                row = tk.Frame(frame, bg="#f8fafc")
+                row.pack(anchor='w', pady=(0, 10))
+                for file in group:
+                    img_path = os.path.join(self.folder, "Duplicate", file) if os.path.exists(os.path.join(self.folder, "Duplicate", file)) else os.path.join(self.folder, file)
+                    try:
+                        img = Image.open(img_path)
+                        img.thumbnail((thumb_size, thumb_size))
+                        thumb = ImageTk.PhotoImage(img)
+                        preview_win.thumbs.append(thumb)
+                        lbl = tk.Label(row, image=thumb, text=file, compound='top', bg="#f8fafc")
+                        lbl.pack(side='left', padx=5)
+                    except Exception:
+                        lbl = tk.Label(row, text=file, bg="#f8fafc", fg="red")
+                        lbl.pack(side='left', padx=5)
+            frame.update_idletasks()
+            canvas.config(scrollregion=canvas.bbox("all"))
+
+        # Додаємо скролінг колесом миші
+        def _on_mousewheel(event):
+            if event.delta:
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            elif event.num == 4:  # Linux scroll up
+                canvas.yview_scroll(-3, "units")
+            elif event.num == 5:  # Linux scroll down
+                canvas.yview_scroll(3, "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas.bind_all("<Button-4>", _on_mousewheel)
+        canvas.bind_all("<Button-5>", _on_mousewheel)
+
+        # Оновлюємо мініатюри при зміні значення в полі
+        def on_entry_change(*args):
+            render_thumbnails()
+        thumb_size_var.trace_add("write", on_entry_change)
+        size_entry.bind('<Return>', lambda e: render_thumbnails())
+        size_entry.bind('<FocusOut>', lambda e: render_thumbnails())
+
+        render_thumbnails()
     
     def show_error(self, error):
         self.log.insert(tk.END, f"❌ Помилка: {error}\n")
